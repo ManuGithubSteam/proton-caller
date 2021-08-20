@@ -3,16 +3,15 @@
 version = 3
 
 [[package]]
+name = "jargon"
+version = "0.1.0"
+source = "git+https://github.com/caverym/jargon#82a531fcc6a4102775d041316f2fbfffe79b7290"
+
+[[package]]
 name = "lliw"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95a2fc354c42ab799761c289ec29b7c75d5b3c6dc670daa07f9ed8ac0b74440c"
-
-[[package]]
-name = "pico-args"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d7afeb98c5a10e0bffcc7fc16e105b04d06729fac5fd6384aebf7ff5cb5a67d"
 
 [[package]]
 name = "proc-macro2"
@@ -27,8 +26,8 @@ dependencies = [
 name = "proton-call"
 version = "2.3.0"
 dependencies = [
+ "jargon",
  "lliw",
- "pico-args",
  "serde",
  "serde_derive",
  "toml",

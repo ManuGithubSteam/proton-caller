@@ -10,7 +10,6 @@ This is the library which defines the Proton Caller API.
 View [bin/proton-call.rs](bin/proton-call.rs) for more information about the `proton-call` executable.
 */
 
-use std::ffi::OsString;
 use std::io::{Error, ErrorKind, Result};
 
 /// This is the latest version of Proton at the time of modification.
@@ -21,7 +20,7 @@ pub struct Proton {
     steam: String,
     proton: String,
     executable: String,
-    passed_args: Vec<OsString>,
+    passed_args: Vec<String>,
     data: String,
     log: bool,
 }
@@ -35,7 +34,7 @@ impl Proton {
         let data: String = config.get_data();
         let proton: String = args.get_proton(&common);
         let executable: String = args.get_executable();
-        let passed_args: Vec<OsString> = args.get_extra_args();
+        let passed_args: Vec<String> = args.get_extra_args();
         let log: bool = args.get_log();
 
         Proton {
@@ -121,7 +120,7 @@ pub trait ProtonArgs {
     fn get_executable(&self) -> String;
 
     /// Return any extra arguments to pass to the Windows executable, or empty vector if none.
-    fn get_extra_args(&self) -> Vec<OsString>;
+    fn get_extra_args(&self) -> Vec<String>;
 
     /// Return value to use for the `PROTON_LOG` environment variable.
     fn get_log(&self) -> bool;

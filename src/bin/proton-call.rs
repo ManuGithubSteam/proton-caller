@@ -22,7 +22,6 @@ Uses custom version of Proton, give the past to directory, not the Proton execut
 */
 
 use proton_call::{error, error_here, Proton, ProtonArgs, ProtonConfig, PROTON_LATEST};
-use std::ffi::OsString;
 use std::fmt::Formatter;
 use std::io::{Error, ErrorKind, Read};
 
@@ -36,21 +35,21 @@ struct Caller {
     custom: Option<String>,
     program: String,
     log: bool,
-    extra: Vec<OsString>,
+    extra: Vec<String>,
 }
 
 impl Caller {
     pub fn new() -> Result<Caller> {
-        use pico_args::Arguments;
+        use jargon::Jargon;
         use std::collections::HashMap;
         use std::process::exit;
 
-        let mut parser: Arguments = Arguments::from_env();
+        let mut parser: Jargon = Jargon::from_env();
 
         if parser.contains(["-h", "--help"]) {
             println!("{}", HELP);
             exit(0);
-        } else if parser.contains(["-V", "--version"]) {
+        } else if parser.contains(["-v", "--version"]) {
             version();
             exit(0);
         }
@@ -69,9 +68,9 @@ impl Caller {
             data: config["data"].clone(),
             steam: config["steam"].clone(),
             common,
-            proton: parser.opt_value_from_str(["-p", "--proton"])?,
-            custom: parser.opt_value_from_str(["-c", "--custom"])?,
-            program: parser.value_from_str(["-r", "--run"])?,
+            proton: parser.option_arg(["-p", "--proton"]),
+            custom: parser.option_arg(["-c", "--custom"]),
+            program: parser.result_arg(["-r", "--run"])?,
             log: parser.contains(["-l", "--log"]),
             extra: parser.finish(),
         })
@@ -95,10 +94,10 @@ impl Caller {
         let mut file: File = match File::open(path) {
             Ok(f) => f,
             Err(e) => {
-                if e.kind() == ErrorKind::NotFound {
-                    return Err(ProtonCallerError::new("cannot open config file"));
+                return if e.kind() == ErrorKind::NotFound {
+                    Err(ProtonCallerError::new("cannot open config file"))
                 } else {
-                    return Err(ProtonCallerError::new(e.to_string()));
+                    Err(ProtonCallerError::new(e.to_string()))
                 }
             }
         };
@@ -150,7 +149,7 @@ impl ProtonArgs for Caller {
         self.program.clone()
     }
 
-    fn get_extra_args(&self) -> Vec<OsString> {
+    fn get_extra_args(&self) -> Vec<String> {
         self.extra.clone()
     }
 
@@ -226,8 +225,8 @@ impl ProtonCallerError {
     }
 }
 
-impl From<pico_args::Error> for ProtonCallerError {
-    fn from(e: pico_args::Error) -> Self {
+impl From<jargon::Error> for ProtonCallerError {
+    fn from(e: jargon::Error) -> Self {
         ProtonCallerError(e.to_string())
     }
 }
