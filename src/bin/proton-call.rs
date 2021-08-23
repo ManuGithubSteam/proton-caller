@@ -21,11 +21,68 @@ Uses custom version of Proton, give the past to directory, not the Proton execut
 `proton-call -c '/path/to/Proton version' -r foo.exe`
 */
 
-use proton_call::{error, error_here, Proton, ProtonArgs, ProtonConfig, PROTON_LATEST};
+use jargon::Jargon;
+use proton_call::{error, error_here, Proton, PROTON_LATEST, ProtonBuilder};
 use std::fmt::Formatter;
 use std::io::{Error, ErrorKind, Read};
-
 type Result<T> = std::result::Result<T, ProtonCallerError>;
+
+#[derive(serde_derive::Deserialize)]
+struct Config {
+    pub data: String,
+    pub steam: String,
+    pub common: Option<String>,
+}
+
+impl Config {
+    pub fn load() -> Result<Self> {
+        let cfg_path: String = Caller::locate_config()?;
+        let config_dat: String = Caller::read_config(cfg_path)?;
+        match toml::from_str(&config_dat) {
+            Err(e) => {
+                Err(ProtonCallerError::new(e))
+            }
+            Ok(a) => Ok(a),
+        }
+    }
+
+    fn locate_config() -> Result<String> {
+        use std::env::var;
+
+        if let Ok(val) = var("XDG_CONFIG_HOME") {
+            Ok(format!("{}/proton.conf", val))
+        } else if let Ok(val) = var("HOME") {
+            Ok(format!("{}/.config/proton.conf", val))
+        } else {
+            Err(ProtonCallerError::new("Failed to read environment!"))
+        }
+    }
+
+    fn read_config(path: String) -> Result<String> {
+        use std::fs::File;
+
+        let mut file: File = match File::open(path) {
+            Ok(f) => f,
+            Err(e) => {
+                return if e.kind() == ErrorKind::NotFound {
+                    Err(ProtonCallerError::new("cannot open config file"))
+                } else {
+                    Err(ProtonCallerError::new(e.to_string()))
+                }
+            }
+        };
+
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf)?;
+
+        let config_dat: String = match String::from_utf8(buf) {
+            Ok(s) => s,
+            Err(e) => error!(ErrorKind::Other, "{}", e)?,
+        };
+
+        Ok(config_dat)
+    }
+}
 
 struct Caller {
     data: String,
@@ -114,50 +171,6 @@ impl Caller {
     }
 }
 
-impl ProtonConfig for Caller {
-    fn get_steam(&self) -> String {
-        self.steam.clone()
-    }
-
-    fn get_common(&self) -> String {
-        if self.common.is_none() {
-            format!("{}/steamapps/common/", self.steam.clone())
-        } else {
-            self.common.clone().unwrap()
-        }
-    }
-
-    fn get_data(&self) -> String {
-        self.data.clone()
-    }
-}
-
-impl ProtonArgs for Caller {
-    fn get_proton(&self, common: &str) -> String {
-        if let Some(path) = &self.custom {
-            format!("{}/proton", path)
-        } else {
-            let proton: String = self
-                .proton
-                .clone()
-                .unwrap_or_else(|| PROTON_LATEST.to_string());
-            format!("{}/Proton {}/proton", common, proton)
-        }
-    }
-
-    fn get_executable(&self) -> String {
-        self.program.clone()
-    }
-
-    fn get_extra_args(&self) -> Vec<String> {
-        self.extra.clone()
-    }
-
-    fn get_log(&self) -> bool {
-        self.log
-    }
-}
-
 fn main() {
     if let Err(e) = proton_caller() {
         eprintln!("{}error:{} {}", lliw::Fg::LightRed, lliw::Fg::Reset, e);
@@ -166,9 +179,27 @@ fn main() {
 }
 
 fn proton_caller() -> Result<()> {
-    let caller: Caller = Caller::new()?;
-    let proton: Proton = Proton::new(&caller, &caller);
-    proton.check()?;
+    let mut j: Jargon = Jargon::from_env();
+
+    if j.contains(["-h", "--help"]) {
+        println!("{}", HELP);
+        return Ok(());
+    } else if j.contains(["-v", "--version"]) {
+        version();
+        return Ok(());
+    }
+
+    let config: Config = Config::load()?;
+
+    let proton: Proton = ProtonBuilder::new()
+        .steam(config.steam)
+        .data(config.data)
+        .proton(j.option_arg(["-p", "--proton"]).unwrap_or("6.3".to_string()))
+        .executable(j.result_arg(["-r", "--run"])?)
+        .log(j.contains(["-l", "--log"]))
+        .args(j.finish())
+        .build()?;
+
     proton.run()?;
     Ok(())
 }

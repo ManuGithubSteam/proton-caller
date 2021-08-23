@@ -27,16 +27,14 @@ pub struct Proton {
 
 impl Proton {
     /// Creates a new Proton structure, with a Config and Args struct.
-    pub fn new<T: ProtonConfig + ProtonArgs>(config: &T, args: &T) -> Proton {
-        let common: String = config.get_common();
-
-        let steam: String = config.get_steam();
-        let data: String = config.get_data();
-        let proton: String = args.get_proton(&common);
-        let executable: String = args.get_executable();
-        let passed_args: Vec<String> = args.get_extra_args();
-        let log: bool = args.get_log();
-
+    pub fn new(
+        steam: String,
+        proton: String,
+        executable: String,
+        passed_args: Vec<String>,
+        data: String,
+        log: bool,
+    ) -> Proton {
         Proton {
             steam,
             proton,
@@ -99,31 +97,73 @@ impl Proton {
     }
 }
 
-/// Trait used in the Proton struct to get information from the Config.
-pub trait ProtonConfig {
-    /// Return `steam` directory where Steam is installed.
-    fn get_steam(&self) -> String;
-
-    /// Return `common` directory where Proton versions are installed to.
-    fn get_common(&self) -> String;
-
-    /// Return `data` directory use during Proton's runtime.
-    fn get_data(&self) -> String;
+pub struct ProtonBuilder {
+    steam: Option<String>,
+    proton: Option<String>,
+    executable: Option<String>,
+    passed_args: Option<Vec<String>>,
+    data: Option<String>,
+    log: Option<bool>,
 }
 
-/// Trait used in the Proton struct to get argument information from Command line.
-pub trait ProtonArgs {
-    /// Return full path to the requested proton executable.
-    fn get_proton(&self, common: &str) -> String;
+impl ProtonBuilder {
+    pub fn new() -> Self {
+        Self {
+            steam: None,
+            proton: None,
+            executable: None,
+            passed_args: None,
+            data: None,
+            log: None
+        }
+    }
 
-    /// Return path to the Windows executable to run.
-    fn get_executable(&self) -> String;
+    pub fn steam(mut self, steam: String) -> Self {
+        self.steam = Some(steam);
+        self
+    }
 
-    /// Return any extra arguments to pass to the Windows executable, or empty vector if none.
-    fn get_extra_args(&self) -> Vec<String>;
+    pub fn proton(mut self, proton: String) -> Self {
+        self.proton = Some(proton);
+        self
+    }
 
-    /// Return value to use for the `PROTON_LOG` environment variable.
-    fn get_log(&self) -> bool;
+    pub fn executable(mut self, exe: String) -> Self {
+        self.executable = Some(exe);
+        self
+    }
+
+    pub fn args(mut self, args: Vec<String>) -> Self {
+        self.passed_args = Some(args);
+        self
+    }
+
+    pub fn data(mut self, data: String) -> Self {
+        self.data = Some(data);
+        self
+    }
+
+    pub fn log(mut self, log: bool) -> Self {
+        self.log = Some(log);
+        self
+    }
+
+    pub fn build(self) -> Result<Proton> {
+        macro_rules! error {
+            ($val:literal) => (Error::new(ErrorKind::Other, format!("{} value is missing", $val)));
+        }
+
+        Ok(
+            Proton {
+                steam: self.steam.ok_or(error!("steam"))?,
+                proton: self.proton.ok_or(error!("proton"))?,
+                executable: self.executable.ok_or(error!("executable"))?,
+                passed_args: self.passed_args.ok_or(error!("passed_args"))?,
+                data: self.data.ok_or(error!("data"))?,
+                log: self.log.ok_or(error!("log"))?,
+            }
+        )
+    }
 }
 
 /// Macro to run the `error_here` function.
